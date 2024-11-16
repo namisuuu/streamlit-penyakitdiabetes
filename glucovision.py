@@ -1,206 +1,180 @@
-import numpy as np
+import streamlit as st
+from streamlit_option_menu import option_menu
 import pandas as pd
 import matplotlib.pyplot as plt
-import missingno as mso
 import seaborn as sns
+sns.set_style('darkgrid', {'axes.facecolor': '0.9'})
 import warnings
-import os
-import scipy
+warnings.filterwarnings('ignore')
+import pickle 
+from PIL import Image
+import plotly.express as px
 
-from sklearn.metrics import recall_score
-from sklearn.metrics import precision_score
-from sklearn.metrics import f1_score
-from sklearn.metrics import accuracy_score
-from scipy import stats
-from scipy.stats import pearsonr
-from scipy.stats import ttest_ind
-from sklearn.metrics import classification_report
-from sklearn.metrics import confusion_matrix
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
-from imblearn.over_sampling import SMOTE
+st.set_page_config(page_title="Diabetes Prediction", layout="wide")
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
-from sklearn.naive_bayes import CategoricalNB
-from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier
+# Load the data
+df = pd.read_csv('Data/diabetes_fix.csv')
+st.title('Diabetes Prediction App')
+st.write('Aplikasi ini memprediksi kemungkinan seseorang menderita diabetes berdasarkan beberapa fitur yang dimasukan')
+st.write('Dataset yang digunakan adalah dataset diabetes dari kaggle')
+st.write('Dataset : https://www.kaggle.com/datasets/akshaydattatraykhare/diabetes-dataset')
+st.write('')
+st.write(df.head())
+divider = st.container()
+divider.markdown('---')
+# Sidebar Data Visualization
+st.sidebar.subheader('Data Visualization')
+# Histogram
+if st.sidebar.checkbox('Show Histogram'):
+    st.header('Histogram')
+    st.write('Pilih fitur yang ingin ditampilkan histogramnya')
+    fitur = st.selectbox('Fitur', ('Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age'))
+    st.write('Histogram dari fitur', fitur)
+    fig, ax = plt.subplots()
+    plt.hist(df[fitur], bins=20)
+    st.pyplot(fig)
 
-df= pd.read_csv('diabetes.csv')
+# Scatter Plot
+if st.sidebar.checkbox('Show Scatter Plot'):
+    st.header('Scatter Plot')
+    st.write('Pilih fitur yang ingin ditampilkan scatter plotnya')
+    fitur1 = st.selectbox('X', ('Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age'))
+    fitur2 = st.selectbox('Y', ('Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age'))
+    st.write('Scatter Plot dari fitur', fitur1, 'dan', fitur2)
+    fig, ax = plt.subplots()
+    plt.scatter(x=df[fitur1], y=df[fitur2], c=df['Outcome'], cmap='rainbow')
+    st.pyplot(fig)
 
-df.columns
-Index(['Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 'Insulin',
-       'BMI', 'DiabetesPedigreeFunction', 'Age', 'Outcome'],
-      dtype='object')
+# Density Plot
+if st.sidebar.checkbox('Show Data Vis'):
+    st.subheader('Jumlah pasien diabetes')
+    fig, ax = plt.subplots()
+    a = sns.countplot(x='Outcome', data=df)
+    for j in a.containers:
+        a.bar_label(j, label_type='edge')
+    a.set_xlabel('Outcome')
+    st.pyplot(fig)
+    st.write('Bisa dilihat dari grafik diatas bahwa banyak orang yang tidak terkena diabetes dan sedikit orang yang terkena diabetes yaitu 268 orang. ')
 
-df.head()
-df.describe()
-df.info()
-df.shape
-df.isna().sum()
-df.nunique()
-df.duplicated().sum()
-df['Outcome'].value_counts()
-num = df.select_dtypes(include=np.number).columns.tolist()
+    divider = st.container()
+    divider.markdown('---')
+    st.subheader('Jumlah pasien diabetes berdasarkan usia')
+    fig, ax = plt.subplots()
+    a = sns.countplot(x='Outcome', hue='Age_grup', data=df)
+    for j in a.containers:
+        a.bar_label(j, label_type='edge')
+    a.set_xlabel('Outcome')
+    plt.legend(loc='upper right', title='Kelompok Umur')
+    st.pyplot(fig) 
+    st.write('Banyak pasien yang terkena diabetes adalah yang berumur 26-35 tahun atau dewasa awal dengan jumlah 86 orang lalu diikutu dengan dewasa akhir yaitu 46-55 tahun dengan jumlah 79 orang dan yang paling sedikit adalah manula dengan jumlah 4 orang.')
 
+    divider = st.container()
+    divider.markdown('---')
+    st.subheader('Jumlah pasien diabetes berdasarkan BMI')
+    fig, ax = plt.subplots()
+    a = sns.countplot(x='Outcome', hue='BMI_grup', data=df)
+    for j in a.containers:
+        a.bar_label(j, label_type='edge')
+    a.set_xlabel('Outcome')
+    plt.legend(loc='upper right', title='Kelompok BMI')
+    st.pyplot(fig)    
+    st.write('Berdasarkan kelompok BMI yang paling banyak terkena diabetes adalah yang memiliki BMI lebih dari 30 (Obesitasa II) dengan jumlah 219 orang lalu diikuti dengan BMI 25 - 29.9 (Obesitas) dengan jumlah 40 orang.')
 
-for col in num:
-    plt.figure(figsize=(8, 6))
-    sns.boxplot(x=df[col])
-    plt.title(f'Boxplot of {col}')
-plt.show()
+# Correlation Plot
+if st.sidebar.checkbox('Show Correlation Plot'):
+    st.subheader('Correlation Plot')
+    fig, ax = plt.subplots()
+    sns.heatmap(df.corr(), annot=True, fmt='.2f', cmap='coolwarm', ax=ax)
+    st.pyplot(fig)
 
-for col in num:
-    plt.figure(figsize=(8, 6))  # Adjust figure size if needed
-    sns.histplot(x=df[col])
-    plt.title(f'Boxplot of {col}')
-    plt.show()
+# Sidebar Prediction
+model = pd.read_pickle('model_svm.pkl')
+# User Input
+st.sidebar.subheader('Prediction')
+if st.sidebar.checkbox('Show Prediction'):
+# Input
+    st.subheader('Prediction Input')
+    nama = st.text_input('Masukkan nama', 'Nama' )
+    preganancies = st.number_input('Masukkan Jumlah Kehamilan     :',0)
+    glucose = st.number_input('Masukkan Kadar Glukosa     :',0)
+    bloodpressure = st.number_input('Masukkan Tekanan Darah     :',0)
+    skinthickness = st.number_input('Masukkan Ketebalan Kulit     :',0)
+    insulin = st.number_input('Masukkan Insulin     :',0)
+    bmi = st.number_input('Masukkan BMI     :',0)
+    dpf = st.number_input('Masukkan Diabetes Pedigree Function     :',0)
+    age = st.number_input('Masukkan Usia     :',0)
+    data = [[preganancies, glucose, bloodpressure, skinthickness, insulin, bmi, dpf, age]]
 
-from sklearn.preprocessing import MinMaxScaler
-num= num = ['Glucose','Age','BloodPressure','SkinThickness','Insulin']
+# Button
+    predict = st.button('Predict')
 
-scaler = MinMaxScaler()
-df[num] = scaler.fit_transform(df[num])
-df
+# Button
 
-x = df.drop(columns = 'Outcome', axis=1)
-y = df['Outcome']
+    #st.subheader('Prediction')
+    # Prediction
+    pred = model.predict(data)
+    #st.write(pred)
+    if predict:
+        #st.write(pred)
+        if pred == 0:
+            st.write('Hiiii, ',nama,'. Kamu aman dari diabetes, tetap jaga kesehatan ya!')
+        else:
+            st.write('Semoga cepat sembuh ya ',nama,'. Kamu memiliki resiko terkena diabetes, jangan lupa untuk ke dokter ya!')
 
-from sklearn.model_selection import train_test_split
+# Sidebar About 
+st.sidebar.subheader('About Model')
+if st.sidebar.checkbox('Show About'):
+    st.subheader('Jumlah Data')
+    st.write('Jumlah data yang digunakan adalah', 1000)
+    st.write('Jumlah data yang digunakan untuk training adalah', 640)
+    st.write('Jumlah data yang digunakan untuk testing adalah', 200)
+    st.write('Jumlah data yang digunakan untuk validation adalah', 160)
 
-X_train, X_test, y_train, y_test = train_test_split(x,y, test_size = 0.2, stratify=y, random_state=2)
+    divider = st.container()
+    divider.markdown('---')
+    st.subheader('Akurasi Model Support Vector Machine')
+    st.write('Accuracy  : 0.78')
+    st.write('Precision : 0.75')
+    st.write('Recall    : 0.82')
+    st.write('F1 Score  : 0.67')
+    st.write('AUC       : 0.77')
+    st.write('MAE       : 0.225')
 
-sns.countplot(x='Outcome', data=df)
+    divider = st.container()
+    divider.markdown('---')
 
-sns.heatmap(df.corr(), annot=True, cmap="coolwarm")
+# Load Gambar
+    st.subheader('Classification Report')
+    image = Image.open('img\classification_svm.png')
+    st.image(image, caption='Model Support Vector Machine', use_column_width=True)
 
-from sklearn.svm import SVC
-# Inisialisasi model SVM dengan kernel linear
-svm = SVC(kernel='linear')
+    divider = st.container()
+    divider.markdown('---')
+    st.subheader('Confusion Matrix Trainig')
+    image = Image.open('img\cm-train.png')
+    st.image(image, caption='Comfusion Matrix Training Model SVM', use_column_width=True)
 
-# Train model
-svm.fit(X_train, y_train)
+    divider = st.container()
+    divider.markdown('---')
+    st.subheader('Confusion Matrix Testing')
+    image = Image.open('img\cm-test.png')
+    st.image(image, caption='Comfusion Matrix Testing Model SVM', use_column_width=True)
 
-# Lakukan prediksi pada data testing
-y_pred = svm.predict(X_test)
+    divider = st.container()
+    divider.markdown('---')
+    st.subheader('Confusion Matrix Validation')
+    image = Image.open('img\cm-val.png')
+    st.image(image, caption='Comfusion Matrix Validation Model SVM', use_column_width=True)
 
-# Evaluasi akurasi model
-accuracy = accuracy_score(y_test, y_pred)
-print(f"Akurasi SVM: {accuracy * 100:.2f}%")
-# Menghitung F1-score
-f1 = f1_score(y_test, y_pred, average='weighted')
-print(f"F1-Score: {f1}")
+    divider = st.container()
+    divider.markdown('---')
+    st.subheader('ROC Curve')
+    image = Image.open('img\model_svm.png')
+    st.image(image, caption='ROC Curve Model SVM', use_column_width=True)
 
-# Menghitung precision
-precision = precision_score(y_test, y_pred, average='weighted')
-print(f"Precision: {precision}")
-
-# Menghitung recall
-recall = recall_score(y_test, y_pred, average='weighted')
-print(f"Recall: {recall}")
-
-# Inisialisasi model Naive Bayes (Gaussian)
-nb = GaussianNB()
-
-# Train model
-nb.fit(X_train, y_train)
-
-# Lakukan prediksi pada data testing
-y_pred = nb.predict(X_test)
-
-# Evaluasi akurasi model
-accuracy = accuracy_score(y_test, y_pred)
-print(f"Akurasi Naive Bayes: {accuracy * 100:.2f}%")
-
-# Menghitung F1-score
-f1 = f1_score(y_test, y_pred, average='weighted')
-print(f"F1-Score: {f1:.2f}")
-
-# Menghitung precision
-precision = precision_score(y_test, y_pred, average='weighted')
-print(f"Precision: {precision}")
-
-# Menghitung recall
-recall = recall_score(y_test, y_pred, average='weighted')
-print(f"Recall: {recall}")
-
-scoreListknn = []
-best_knn_model = None
-
-for i in range(1, 21):
-    KNclassifier = KNeighborsClassifier(n_neighbors=i)
-    KNclassifier.fit(X_train, y_train)
-
-    # Menghitung akurasi dan menyimpan model terbaik
-    score = KNclassifier.score(X_test, y_test)
-    scoreListknn.append(score)
-
-    # Simpan model jika akurasinya lebih baik
-    if best_knn_model is None or score > best_knn_model.score(X_test, y_test):
-        best_knn_model = KNclassifier
-
-# Plotting
-plt.plot(range(1, 21), scoreListknn)
-plt.xticks(np.arange(1, 21, 1))
-plt.xlabel("K value")
-plt.ylabel("Score")
-plt.title("KNN Accuracy for Different K Values")
-plt.show()
-
-KNAcc = max(scoreListknn)
-print("KNN best accuracy: {:.2f}%".format(KNAcc * 100))
-
-# Menghitung F1-score menggunakan model terbaik
-y_pred = best_knn_model.predict(X_test)
-f1 = f1_score(y_test, y_pred, average='weighted')
-print(f"F1-Score: {f1}")
-
-# Menghitung precision
-precision = precision_score(y_test, y_pred, average='weighted')
-print(f"Precision: {precision}")
-
-# Menghitung recall
-recall = recall_score(y_test, y_pred, average='weighted')
-print(f"Recall: {recall}")
-
-input_data = (2,264,70,21,176,26.9,0.671,40)
-
-# changing the input_data to numpy array
-input_data_as_numpy_array = np.asarray(input_data)
-
-# reshape the array as we are predicting for one instance
-input_data_reshaped = input_data_as_numpy_array.reshape(1,-1)
-
-prediksi = nb.predict(input_data_reshaped)
-print(prediksi)
-
-if (prediksi[0] == 0):
-  print('bukan penderita diabetes')
-else:
-  print('penderita diabetes')
-
-import pickle
-
-filename = 'trained_model.sav'
-pickle.dump(nb, open(filename, 'wb'))
-
-# loading the saved model
-loaded_model = pickle.load(open('trained_model.sav', 'rb'))
-
-input_data = (2,264,70,21,176,26.9,0.671,40)
-
-# changing the input_data to numpy array
-input_data_as_numpy_array = np.asarray(input_data)
-
-# reshape the array as we are predicting for one instance
-input_data_reshaped = input_data_as_numpy_array.reshape(1,-1)
-
-prediksi = loaded_model.predict(input_data_reshaped)
-print(prediksi)
-
-if (prediksi[0] == 0):
-  print('bukan penderita diabetes')
-else:
-  print('penderita diabetes')
+    divider = st.container()
+    divider.markdown('---')
+    st.subheader('ROC Curve Testing')
+    image = Image.open('img\model_svm-test.png')
+    st.image(image, caption='ROC Curve Model SVM Test', use_column_width=True)
 
